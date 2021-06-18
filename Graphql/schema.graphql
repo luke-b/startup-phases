@@ -1,0 +1,64 @@
+schema {
+    query:Query
+    mutation: Mutation
+}
+
+type Query {
+    getPhases(startup: StartupInput): [Phase]
+    getActivities(phase: PhaseInput): [Activity]
+    getCurrentPhaseForStatup(startup: StartupInput): Activity
+    getStartup(startup: StartupInput): Startup
+    getStartupsForAgentById(id: ID): [Startup] 
+}
+
+type Mutation {
+    markActivityCompleted(activity: ActivityInput): Activity
+}
+
+input StartupInput {
+  id: ID!
+  companyName: String
+}
+
+input PhaseInput {
+  id: ID!  
+}
+
+input ActivityInput {
+  id: ID!  
+}
+
+
+type Agent {
+  id: ID!
+  userName: String
+  startups: [Startup!] 
+}
+
+type Startup {
+  id: ID!
+  companyName: String!
+  currentPhase: Phase
+}
+
+type Phase {
+  id: ID!
+  description: String!
+  completionState: PhaseState!
+  precedingPhase: Phase
+  startup: Startup!
+}
+
+type Activity {
+  id: ID!
+  description: String!
+  isCompleted: Boolean!
+  precedingActivity: Activity
+  parentPhase: Phase!
+}
+
+enum PhaseState {
+  LOCKED
+  UNLOCKED
+  COMPLETED
+}

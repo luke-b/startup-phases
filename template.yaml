@@ -1,112 +1,472 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Resources:
-  getForm:
-    Type: AWS::Serverless::Function
+  Graphql:
+    Type: AWS::AppSync::GraphQLApi
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-getForm
-      Description: !Sub
-        - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Function ${ResourceName}
-        - ResourceName: getForm
-      CodeUri: src/getForm
-      Handler: index.handler
-      Runtime: nodejs12.x
-      MemorySize: 3008
-      Timeout: 30
-      Tracing: Active
+      Name: !Sub
+        - ${ResourceName} From Stack ${StackTagName} Environment ${EnvironmentTagName}
+        - ResourceName: Graphql
+      AuthenticationType: API_KEY
+      LogConfig:
+        FieldLogLevel: ERROR
+        CloudWatchLogsRoleArn: !GetAtt GraphqlLogsRole.Arn
+      XrayEnabled: true
+  GraphqlSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt Graphql.ApiId
+      DefinitionS3Location: Graphql/schema.graphql
+  GraphqlLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-logs
       Policies:
-        - AWSXrayWriteOnlyAccess
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            Path: /newsletter-form
-            Method: GET
-            RestApiId: !Ref Api
-    Metadata:
-      StackeryName: getForm
-  handleSubmit:
+        - PolicyName: Log
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/appsync/apis/*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/appsync/apis/*:log-stream:*
+  GraphqlQuerygetStartupsForAgentByIdResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Query
+      DataSourceName: !GetAtt GraphqlToFunction4DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Query-getStartupsForAgentById-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Query-getStartupsForAgentById-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: getStartupsForAgentById
+    DependsOn: GraphqlSchema
+  GraphqlQuerygetStartupResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Query
+      DataSourceName: !GetAtt GraphqlToFunction6DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Query-getStartup-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Query-getStartup-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: getStartup
+    DependsOn: GraphqlSchema
+  GraphqlQuerygetPhasesResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Query
+      DataSourceName: !GetAtt GraphqlToFunction2DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Query-getPhases-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Query-getPhases-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: getPhases
+    DependsOn: GraphqlSchema
+  GraphqlQuerygetCurrentPhaseForStatupResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Query
+      DataSourceName: !GetAtt GraphqlTogetCurrentPhaseForStartupDataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Query-getCurrentPhaseForStatup-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Query-getCurrentPhaseForStatup-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: getCurrentPhaseForStatup
+    DependsOn: GraphqlSchema
+  GraphqlMutationmarkActivityCompletedResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Mutation
+      DataSourceName: !GetAtt GraphqlToFunction5DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Mutation-markActivityCompleted-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Mutation-markActivityCompleted-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: markActivityCompleted
+    DependsOn: GraphqlSchema
+  GraphqlToFunction2DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction2AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: getPhasesByStartup
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt getPhasesByStartup.Arn
+  GraphqlToFunction2AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-getPhasesByS
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt getPhasesByStartup.Arn
+  GraphqlToFunction3DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction3AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: getActivitiesByPhase
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt getActivitiesByPhase.Arn
+  GraphqlToFunction3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-getActivitie
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt getActivitiesByPhase.Arn
+  GraphqlToFunction4DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction4AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: getStartupsForAgentById
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt getStartupsForAgentById.Arn
+  GraphqlToFunction4AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-getStartupsF
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt getStartupsForAgentById.Arn
+  GraphqlToFunction5DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction5AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: markActivityCompleted
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt markActivityCompleted.Arn
+  GraphqlToFunction5AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-markActivity
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt markActivityCompleted.Arn
+  GraphqlToFunction6DataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlToFunction6AccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: getStartupById
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt getStartupById.Arn
+  GraphqlToFunction6AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-getStartupBy
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt getStartupById.Arn
+  getCurrentPhaseForStartup:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-handleSubmit
+      FunctionName: !Sub ${AWS::StackName}-getCurrentPhaseForStart
       Description: !Sub
-        - Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName} Function ${ResourceName}
-        - ResourceName: handleSubmit
-      CodeUri: src/handleSubmit
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: getCurrentPhaseForStartup
+      CodeUri: src/Function7
       Handler: index.handler
-      Runtime: nodejs12.x
+      Runtime: nodejs14.x
       MemorySize: 3008
       Timeout: 30
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
         - DynamoDBCrudPolicy:
-            TableName: !Ref Signups
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            Path: /submit
-            Method: POST
-            RestApiId: !Ref Api
+            TableName: !Ref Phase
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Startup
       Environment:
         Variables:
-          TABLE_NAME: !Ref Signups
-          TABLE_ARN: !GetAtt Signups.Arn
-    Metadata:
-      StackeryName: handleSubmit
-  Signups:
+          TABLE_NAME: !Ref Phase
+          TABLE_ARN: !GetAtt Phase.Arn
+          TABLE_NAME_2: !Ref Startup
+          TABLE_ARN_2: !GetAtt Startup.Arn
+  GraphqlTogetCurrentPhaseForStartupDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt GraphqlTogetCurrentPhaseForStartupAccessRole.Arn
+      ApiId: !GetAtt Graphql.ApiId
+      Name: getCurrentPhaseForStartup
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt getCurrentPhaseForStartup.Arn
+  GraphqlTogetCurrentPhaseForStartupAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: appsync.amazonaws.com
+          Action: sts:AssumeRole
+      RoleName: !Sub ${AWS::StackName}-Graphql-to-getCurrentPh
+      Policies:
+        - PolicyName: Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt getCurrentPhaseForStartup.Arn
+  markActivityCompleted:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-markActivityCompleted
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: markActivityCompleted
+      CodeUri: src/Function5
+      Handler: index.handler
+      Runtime: nodejs14.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Activity
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Activity
+          TABLE_ARN: !GetAtt Activity.Arn
+  getStartupById:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-getStartupById
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: getStartupById
+      CodeUri: src/Function6
+      Handler: index.handler
+      Runtime: nodejs14.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Startup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Startup
+          TABLE_ARN: !GetAtt Startup.Arn
+  getStartupsForAgentById:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-getStartupsForAgentById
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: getStartupsForAgentById
+      CodeUri: src/Function4
+      Handler: index.handler
+      Runtime: nodejs14.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Startup
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Startup
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Agent
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Startup
+          TABLE_ARN: !GetAtt Startup.Arn
+          TABLE_NAME_2: !Ref Startup
+          TABLE_ARN_2: !GetAtt Startup.Arn
+          TABLE_NAME_3: !Ref Agent
+          TABLE_ARN_3: !GetAtt Agent.Arn
+  getPhasesByStartup:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-getPhasesByStartup
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: getPhasesByStartup
+      CodeUri: src/Function2
+      Handler: index.handler
+      Runtime: nodejs14.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Phase
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Startup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Phase
+          TABLE_ARN: !GetAtt Phase.Arn
+          TABLE_NAME_2: !Ref Startup
+          TABLE_ARN_2: !GetAtt Startup.Arn
+  getActivitiesByPhase:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-getActivitiesByPhase
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: getActivitiesByPhase
+      CodeUri: src/Function3
+      Handler: index.handler
+      Runtime: nodejs14.x
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Activity
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Phase
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref Activity
+          TABLE_ARN: !GetAtt Activity.Arn
+          TABLE_NAME_2: !Ref Phase
+          TABLE_ARN_2: !GetAtt Phase.Arn
+  GraphqlQuerygetActivitiesByPhaseResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      TypeName: Query
+      DataSourceName: !GetAtt GraphqlToFunction3DataSource.Name
+      RequestMappingTemplateS3Location: Graphql/Query-getActivities-request.vm
+      ResponseMappingTemplateS3Location: Graphql/Query-getActivities-response.vm
+      ApiId: !GetAtt Graphql.ApiId
+      FieldName: getActivities
+    DependsOn: GraphqlSchema
+  Activity:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-        - AttributeName: email
+        - AttributeName: id
           AttributeType: S
+      BillingMode: PAY_PER_REQUEST
       KeySchema:
-        - AttributeName: email
+        - AttributeName: id
           KeyType: HASH
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
-      TableName: !Sub ${AWS::StackName}-Signups
-    Metadata:
-      StackeryName: SignUps
-  Api:
-    Type: AWS::Serverless::Api
+  Startup:
+    Type: AWS::DynamoDB::Table
     Properties:
-      Name: !Sub
-        - ${ResourceName} From Stackery Stack ${StackeryStackTagName} Environment ${StackeryEnvironmentTagName}
-        - ResourceName: formApi
-      StageName: !Ref StackeryEnvironmentAPIGatewayStageName
-      DefinitionBody:
-        swagger: '2.0'
-        info: {}
-        paths:
-          /newsletter-form:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${getForm.Arn}/invocations
-              responses: {}
-          /submit:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${handleSubmit.Arn}/invocations
-              responses: {}
-      EndpointConfiguration: REGIONAL
-    Metadata:
-      StackeryName: formApi
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+  Phase:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+  Agent:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 Parameters:
-  StackeryStackTagName:
+  StackTagName:
     Type: String
     Description: Stack Name (injected by Stackery at deployment time)
-  StackeryEnvironmentTagName:
+  EnvironmentTagName:
     Type: String
     Description: Environment Name (injected by Stackery at deployment time)
-  StackeryEnvironmentAPIGatewayStageName:
-    Type: String
-    Description: Environment name used for API Gateway Stage names (injected by Stackery at deployment time)
